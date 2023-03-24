@@ -1,0 +1,74 @@
+//@Copyright Negoita Anca-Elena, 321CA, 2022-2023
+
+Thread scheduler
+-------------------------------------------------------------------------------
+
+This program implements a thread scheduler that will control their execution in
+user-space. It will simulate a preemptive process scheduler, in a uniprocessor
+system, that uses a Round Robin scheduling algorithm with priorities.
+
+In order to do this, 2 structures where implemented:
+- The thread structure is used to simulate the features a classic thread. 
+            - priority - stores the priority of a thread that is needed when
+                        inserted in a priority queue (in order to use the 
+                        Round Robin algorithm)
+            - state - stores the current state of the thread
+            - handl - function associated with the thread used when a thread is
+                      started
+            - id - stores the id of the thread
+            - actual_quantum - the time left in the quantum of running on the
+                               processor
+- The scheduler structure contains all the resources needed in order to schedule
+the threads
+            - *threads - dynamic array of thread structures, 
+            - *real_threads - dynamic array of thread identifiers
+            - pq - the priority queue used to determine the order of the threads
+                   by their priorities
+            - pq_size - the size associated with the queue
+            - curr_thread - the current running thread
+            - id_curr_thread - the id of the current running thread
+            - time_quantum - number of time units that a process has before it
+                             gets preempted
+            - io - number of events (I/O devices) that are supported
+            - total_threads - number of threads
+
+SO_INIT function is used to initialize the scheduler variables, which are kept
+in the static scheduler *so_scheduler variable, the waiting array of threads and
+the priority queue. All of them are allocated dynamically.
+
+SO_FORK function is the function that adds a thread. The thread is stored in 
+so_scheduler, and sem_init is called, creating a semaphore for the thread.
+After that, pthread_create is called that creates the actual instance of the
+thread. Using the start_thread function, the thread is planned and scheduled.
+By the help of the mutex, it is verified if a thread locked the mutex.
+Then, the thread is added in the priority queue using a function that puts the
+thread in its specific position in queue by its priority. By calling so_exec
+the thread is executed and its quantum time decreases.
+
+SO_WAIT adds the current thread in the waiting array, changing its state to
+WAITING. Also, after that, the thread is executed so it can be rescheduled and
+another thread will start.
+
+SO_SIGNAL unlocks every thread that has been waiting for this event / io and
+adds it to the priority queue and after that calls so_exec.
+
+SO_EXEC is used for decrementing the time quantum that the running thread has.
+The schedule function is called, which verifies if the running thread still
+respects all the conditions, including the time quantum being greater than 0.
+Then, sem_wait is called in order to lock the thread, decrementing the value.
+
+SCHEDULE function verifies all the condition that the current thread needs to
+respect at runtime. If there isn't a running thread, then the first element
+from the priority queue becomes the running thread. If the list is empty and
+the current thread is TERMINATED, the functions return 0 which means success.
+If the quantum time is below or equal to 0 and in the queue there is a thread
+with greater priority, they switch places by calling the function switch_threads
+that puts the first element from the priority queue in curr_thread from
+so_scheduler, becoming the current thread, and the one that was current back in
+the priority queue. The first element is deleted and posted by the help of
+sem_post that unlocks the thread.
+
+SO_END frees all the space used by the dynamic arrays and destroys the used
+semaphores, also releasing the space(sem_destroy). phtread_join makes a thread
+wait for termination, and then the scheduler and the waiting list of threads are
+freed. In the end, the mutex is destroyed and the scheduler is initialized with 0.
